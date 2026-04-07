@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ArrowLeft, Network, TriangleAlert } from "lucide-react";
 
+import { DashboardActions } from "@/components/DashboardActions";
 import { PageRow } from "@/components/PageRow";
 import { getScores } from "@/lib/api";
 import { ScoreBand } from "@/lib/types";
@@ -30,10 +31,13 @@ export default async function DashboardPage({
                 Reliability ranking for {result.workspace_id}
               </h1>
             </div>
-            <Link href="/" className="button button-secondary">
-              <ArrowLeft size={16} />
-              Back
-            </Link>
+            <div className="flex flex-wrap gap-3">
+              <DashboardActions source={source} />
+              <Link href="/" className="button button-secondary">
+                <ArrowLeft size={16} />
+                Back
+              </Link>
+            </div>
           </div>
 
           <section className="mb-6 grid gap-4 md:grid-cols-4">

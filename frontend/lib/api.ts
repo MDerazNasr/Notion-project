@@ -9,8 +9,12 @@ async function readJson<T>(response: Response): Promise<T> {
 
     try {
       const payload = (await response.json()) as { detail?: string };
-      throw new Error(payload.detail ?? fallback);
-    } catch {
+      const message = payload.detail ?? fallback;
+      throw new Error(message);
+    } catch (error) {
+      if (error instanceof Error && error.message !== fallback) {
+        throw error;
+      }
       throw new Error(fallback);
     }
   }

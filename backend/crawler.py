@@ -10,7 +10,7 @@ import networkx as nx
 
 from snapshot import EditEvent, PageNode, WorkspaceSnapshot
 
-NOTION_API_VERSION = "2022-06-28"
+NOTION_API_VERSION = "2026-03-11"
 NOTION_BASE = "https://api.notion.com/v1"
 # Notion rate limit: 3 requests per second
 RATE_LIMIT_DELAY = 0.34

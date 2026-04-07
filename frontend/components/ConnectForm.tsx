@@ -1,17 +1,23 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { ArrowRight, DatabaseZap, LoaderCircle } from "lucide-react";
+import Link from "next/link";
+import { ArrowRight, BadgeCheck, DatabaseZap, LoaderCircle } from "lucide-react";
 import { useState } from "react";
 
 import { requestDemoScore, requestLiveScore } from "@/lib/api";
 
-export function ConnectForm() {
+type ConnectFormProps = {
+  oauthEnabled: boolean;
+  initialError?: string;
+};
+
+export function ConnectForm({ oauthEnabled, initialError }: ConnectFormProps) {
   const router = useRouter();
   const [notionToken, setNotionToken] = useState("");
   const [cohereApiKey, setCohereApiKey] = useState("");
   const [isSubmitting, setIsSubmitting] = useState<"demo" | "live" | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(initialError ?? null);
 
   async function startDemo() {
     setIsSubmitting("demo");
@@ -61,18 +67,6 @@ export function ConnectForm() {
       <div className="grid gap-4 sm:grid-cols-2">
         <label className="block">
           <span className="mb-2 block text-sm font-medium text-ink">
-            Notion integration token
-          </span>
-          <input
-            className="field"
-            placeholder="secret_..."
-            value={notionToken}
-            onChange={(event) => setNotionToken(event.target.value)}
-          />
-        </label>
-
-        <label className="block">
-          <span className="mb-2 block text-sm font-medium text-ink">
             Cohere API key
           </span>
           <input
@@ -82,6 +76,12 @@ export function ConnectForm() {
             onChange={(event) => setCohereApiKey(event.target.value)}
           />
         </label>
+
+        <div className="rounded-subtle border border-line bg-surface px-4 py-4 text-sm leading-6 text-[color:var(--muted)]">
+          OAuth mode keeps the Notion access token in an HTTP-only cookie on the
+          server. Manual token entry remains available as a fallback for local
+          testing.
+        </div>
       </div>
 
       <div className="mt-3 rounded-subtle border border-line bg-surface px-4 py-3 text-sm text-[color:var(--muted)]">
@@ -95,6 +95,13 @@ export function ConnectForm() {
       ) : null}
 
       <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+        {oauthEnabled ? (
+          <Link href="/api/notion/authorize" className="button button-secondary">
+            <BadgeCheck size={16} />
+            Connect with Notion OAuth
+          </Link>
+        ) : null}
+
         <button
           type="button"
           className="button button-primary"
@@ -108,20 +115,37 @@ export function ConnectForm() {
           )}
           Try demo workspace
         </button>
+      </div>
 
-        <button
-          type="button"
-          className="button button-secondary"
-          onClick={scoreLiveWorkspace}
-          disabled={isSubmitting !== null || !notionToken.trim()}
-        >
-          {isSubmitting === "live" ? (
-            <LoaderCircle size={16} className="animate-spin" />
-          ) : (
-            <ArrowRight size={16} />
-          )}
-          Score live workspace
-        </button>
+      <div className="mt-8 rounded-notion border border-line bg-[rgba(247,246,243,0.7)] p-4">
+        <div className="mb-3 text-sm font-medium text-ink">Manual token mode</div>
+        <label className="block">
+          <span className="mb-2 block text-sm font-medium text-ink">
+            Notion integration token
+          </span>
+          <input
+            className="field"
+            placeholder="secret_..."
+            value={notionToken}
+            onChange={(event) => setNotionToken(event.target.value)}
+          />
+        </label>
+
+        <div className="mt-4">
+          <button
+            type="button"
+            className="button button-secondary"
+            onClick={scoreLiveWorkspace}
+            disabled={isSubmitting !== null || !notionToken.trim()}
+          >
+            {isSubmitting === "live" ? (
+              <LoaderCircle size={16} className="animate-spin" />
+            ) : (
+              <ArrowRight size={16} />
+            )}
+            Score live workspace
+          </button>
+        </div>
       </div>
     </div>
   );

@@ -9,7 +9,18 @@ const highlights = [
   "Surfaces page-level reasons instead of a single workspace health number."
 ];
 
-export default function HomePage() {
+export default async function HomePage({
+  searchParams
+}: {
+  searchParams: Promise<{ error?: string }>;
+}) {
+  const resolvedSearchParams = await searchParams;
+  const oauthEnabled = Boolean(
+    process.env.NOTION_OAUTH_CLIENT_ID &&
+      process.env.NOTION_OAUTH_CLIENT_SECRET &&
+      process.env.NOTION_OAUTH_REDIRECT_URI
+  );
+
   return (
     <main className="pb-16 pt-8 sm:pb-24 sm:pt-12">
       <div className="shell">
@@ -58,7 +69,10 @@ export default function HomePage() {
           id="connect"
           className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]"
         >
-          <ConnectForm />
+          <ConnectForm
+            oauthEnabled={oauthEnabled}
+            initialError={resolvedSearchParams.error}
+          />
 
           <div className="card p-6">
             <div className="label mb-3">Scoring rubric</div>
