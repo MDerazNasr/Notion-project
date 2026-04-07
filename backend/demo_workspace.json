@@ -1,0 +1,543 @@
+{
+  "workspace_id": "ws-notionpulse-demo",
+  "snapshot_time": "2025-02-01T00:00:00Z",
+  "pages": [
+    {
+      "id": "e1a00001-0000-4000-a000-000000000001",
+      "title": "Backend Architecture Overview",
+      "content": "This document describes the backend architecture for our platform. The system uses a monolithic Rails application deployed on Heroku with a PostgreSQL database. Request routing is handled by the legacy API gateway (Kong v1.x) which forwards traffic to the Rails app. Background jobs run on Sidekiq with Redis as the message broker. The authentication service is a standalone Sinatra microservice that issues JWT tokens. All services communicate over HTTP REST. Monitoring is handled by a self-hosted Grafana instance connected to StatsD. Note: the event sourcing prototype was abandoned in Q3 2023 after failing load tests.",
+      "last_edited_time": "2023-12-05T14:30:00Z",
+      "created_time": "2023-03-15T09:00:00Z",
+      "backlinks": [],
+      "outbound_links": [
+        "e1a00002-0000-4000-a000-000000000002",
+        "e1a00003-0000-4000-a000-000000000003"
+      ],
+      "parent_id": "c0000001-0000-4000-a000-000000000100",
+      "edit_history": [
+        {"time": "2023-03-15T09:00:00Z", "magnitude": 1.0},
+        {"time": "2023-06-20T11:00:00Z", "magnitude": 0.3},
+        {"time": "2023-12-05T14:30:00Z", "magnitude": 0.05}
+      ]
+    },
+    {
+      "id": "e1a00002-0000-4000-a000-000000000002",
+      "title": "Database Schema Reference",
+      "content": "PostgreSQL schema reference for the core platform database. Primary tables: users (id, email, hashed_password, created_at, role), organizations (id, name, plan_tier, owner_id), pages (id, org_id, title, content_blocks JSONB, created_by, last_edited_by, last_edited_time), blocks (id, page_id, type, properties JSONB, position). Foreign keys enforce referential integrity. Indexes on users.email (unique), pages.org_id, blocks.page_id. The audit_log table was added in Q1 2023 for compliance. Note: the deprecated sessions table should be dropped after the JWT migration completes. Partitioning on pages by org_id was planned but never implemented.",
+      "last_edited_time": "2023-11-10T16:00:00Z",
+      "created_time": "2023-03-20T10:00:00Z",
+      "backlinks": [
+        "e1a00001-0000-4000-a000-000000000001",
+        "e1a00005-0000-4000-a000-000000000005",
+        "o3c00004-0000-4000-a000-000000000020"
+      ],
+      "outbound_links": [],
+      "parent_id": "c0000001-0000-4000-a000-000000000100",
+      "edit_history": [
+        {"time": "2023-03-20T10:00:00Z", "magnitude": 1.0},
+        {"time": "2023-05-15T09:00:00Z", "magnitude": 0.2},
+        {"time": "2023-11-10T16:00:00Z", "magnitude": 0.08}
+      ]
+    },
+    {
+      "id": "e1a00003-0000-4000-a000-000000000003",
+      "title": "API Gateway Configuration",
+      "content": "Kong v1.x gateway configuration for routing API requests. The gateway runs on a dedicated EC2 instance (m5.large) behind an AWS ALB. Routes: /api/v1/* forwards to the Rails monolith on port 3000, /auth/* forwards to the Sinatra auth service on port 4567, /webhooks/* forwards to the webhook processor on port 5000. Rate limiting plugin is configured at 100 req/min per API key. CORS plugin allows origins from app.example.com and localhost:3000. SSL termination happens at the ALB level. Health checks ping /health on each upstream every 30 seconds. The gateway config is managed manually via the Kong admin API. Note: migration to AWS API Gateway was proposed in Q4 2023 but not prioritized.",
+      "last_edited_time": "2024-01-18T10:00:00Z",
+      "created_time": "2023-04-02T14:00:00Z",
+      "backlinks": [
+        "e1a00001-0000-4000-a000-000000000001",
+        "e1a00004-0000-4000-a000-000000000004",
+        "e1a00007-0000-4000-a000-000000000007"
+      ],
+      "outbound_links": [
+        "e1a00004-0000-4000-a000-000000000004"
+      ],
+      "parent_id": "c0000001-0000-4000-a000-000000000100",
+      "edit_history": [
+        {"time": "2023-04-02T14:00:00Z", "magnitude": 1.0},
+        {"time": "2023-08-11T09:00:00Z", "magnitude": 0.15},
+        {"time": "2024-01-18T10:00:00Z", "magnitude": 0.05}
+      ]
+    },
+    {
+      "id": "e1a00004-0000-4000-a000-000000000004",
+      "title": "Authentication Flow Documentation",
+      "content": "Authentication uses a hybrid approach. The original session-based auth via the Rails monolith is still active for the web app. The newer JWT-based flow handles mobile and API clients through the standalone auth service. OAuth2 flow: client redirects to /auth/authorize, user authenticates, callback receives authorization code, client exchanges code for access token (15 min expiry) and refresh token (30 day expiry). Tokens are signed with RS256 using a rotating key pair stored in AWS Secrets Manager. The migration from session-based to fully JWT-based auth is approximately 70% complete. Web app sessions still use encrypted cookies with a 24-hour expiry. MFA was added in June 2024 using TOTP.",
+      "last_edited_time": "2024-06-15T11:00:00Z",
+      "created_time": "2023-05-10T09:00:00Z",
+      "backlinks": [
+        "e1a00003-0000-4000-a000-000000000003",
+        "p2b00002-0000-4000-a000-000000000010"
+      ],
+      "outbound_links": [
+        "e1a00003-0000-4000-a000-000000000003",
+        "e1a00006-0000-4000-a000-000000000006"
+      ],
+      "parent_id": "c0000001-0000-4000-a000-000000000100",
+      "edit_history": [
+        {"time": "2023-05-10T09:00:00Z", "magnitude": 1.0},
+        {"time": "2023-09-22T14:00:00Z", "magnitude": 0.35},
+        {"time": "2024-03-08T10:00:00Z", "magnitude": 0.25},
+        {"time": "2024-06-15T11:00:00Z", "magnitude": 0.15}
+      ]
+    },
+    {
+      "id": "e1a00005-0000-4000-a000-000000000005",
+      "title": "CI/CD Pipeline Guide",
+      "content": "Our CI/CD pipeline runs on GitHub Actions. On every pull request: lint (ESLint + Rubocop), unit tests (RSpec, Jest), integration tests against a Dockerized PostgreSQL instance, and a staging deploy preview. Merges to main trigger: full test suite, Docker image build and push to ECR, rolling deploy to ECS staging, smoke tests, then production deploy with a 10-minute canary window. Rollback is manual via the ECS console or by reverting the merge commit. Database migrations run as a pre-deploy step using Rails db:migrate. Feature flags managed through LaunchDarkly. Build times average 8-12 minutes. The pipeline was last significantly updated in July 2024 to add container scanning via Trivy.",
+      "last_edited_time": "2024-07-22T09:00:00Z",
+      "created_time": "2023-04-18T11:00:00Z",
+      "backlinks": [
+        "e1a00007-0000-4000-a000-000000000007",
+        "e1a00008-0000-4000-a000-000000000008"
+      ],
+      "outbound_links": [
+        "e1a00002-0000-4000-a000-000000000002",
+        "e1a00008-0000-4000-a000-000000000008"
+      ],
+      "parent_id": "c0000001-0000-4000-a000-000000000100",
+      "edit_history": [
+        {"time": "2023-04-18T11:00:00Z", "magnitude": 1.0},
+        {"time": "2023-08-05T14:00:00Z", "magnitude": 0.2},
+        {"time": "2024-02-14T10:00:00Z", "magnitude": 0.15},
+        {"time": "2024-07-22T09:00:00Z", "magnitude": 0.2}
+      ]
+    },
+    {
+      "id": "e1a00006-0000-4000-a000-000000000006",
+      "title": "Error Handling Standards",
+      "content": "Standard error handling patterns for the platform. API errors must return structured JSON: {error: string, code: string, details: object, request_id: string}. HTTP status codes: 400 for validation errors, 401 for authentication failures, 403 for authorization failures, 404 for missing resources, 409 for conflicts, 422 for unprocessable entities, 429 for rate limiting, 500 for unexpected server errors. All 5xx errors must be logged to Sentry with the full stack trace and request context. Background job failures retry 3 times with exponential backoff (1min, 5min, 25min) before moving to the dead letter queue. Client-side errors are captured via a global error boundary in React and reported to Sentry with component stack traces. Last updated to include the new error taxonomy for the GraphQL API layer.",
+      "last_edited_time": "2024-05-20T15:00:00Z",
+      "created_time": "2023-06-01T10:00:00Z",
+      "backlinks": [
+        "e1a00004-0000-4000-a000-000000000004"
+      ],
+      "outbound_links": [
+        "e1a00007-0000-4000-a000-000000000007"
+      ],
+      "parent_id": "c0000001-0000-4000-a000-000000000100",
+      "edit_history": [
+        {"time": "2023-06-01T10:00:00Z", "magnitude": 1.0},
+        {"time": "2023-10-15T14:00:00Z", "magnitude": 0.15},
+        {"time": "2024-05-20T15:00:00Z", "magnitude": 0.2}
+      ]
+    },
+    {
+      "id": "e1a00007-0000-4000-a000-000000000007",
+      "title": "On-call Runbook v3",
+      "content": "On-call runbook for the platform engineering team. Escalation path: PagerDuty alert -> primary on-call acknowledges within 5 minutes -> assess severity (P1: customer-facing outage, P2: degraded performance, P3: internal tooling). P1 response: open incident channel in Slack (#inc-YYYYMMDD), page secondary on-call and engineering manager, begin investigation. Common scenarios: (1) API latency spike: check ECS task health, verify RDS connection pool, check for long-running queries in pg_stat_activity. (2) Background job backlog: check Sidekiq dashboard, verify Redis memory usage, check for deadlocked jobs. (3) Auth service errors: verify JWT signing key rotation, check Secrets Manager access, verify auth service ECS task count. (4) Database connection exhaustion: kill idle connections, check for connection leaks in the connection pool monitor. Post-incident: write postmortem within 48 hours, update this runbook if new scenarios discovered. Last major update: added Kubernetes migration troubleshooting section after the January 2025 partial migration.",
+      "last_edited_time": "2025-01-10T16:00:00Z",
+      "created_time": "2024-03-01T09:00:00Z",
+      "backlinks": [
+        "e1a00006-0000-4000-a000-000000000006",
+        "e1a00008-0000-4000-a000-000000000008",
+        "m4d00001-0000-4000-a000-000000000023",
+        "m4d00002-0000-4000-a000-000000000024",
+        "m4d00003-0000-4000-a000-000000000025",
+        "m4d00004-0000-4000-a000-000000000026",
+        "m4d00005-0000-4000-a000-000000000027"
+      ],
+      "outbound_links": [
+        "e1a00003-0000-4000-a000-000000000003",
+        "e1a00005-0000-4000-a000-000000000005",
+        "e1a00008-0000-4000-a000-000000000008"
+      ],
+      "parent_id": "c0000001-0000-4000-a000-000000000100",
+      "edit_history": [
+        {"time": "2024-03-01T09:00:00Z", "magnitude": 1.0},
+        {"time": "2024-06-15T14:00:00Z", "magnitude": 0.3},
+        {"time": "2024-09-20T10:00:00Z", "magnitude": 0.25},
+        {"time": "2024-11-05T16:00:00Z", "magnitude": 0.15},
+        {"time": "2025-01-10T16:00:00Z", "magnitude": 0.2}
+      ]
+    },
+    {
+      "id": "e1a00008-0000-4000-a000-000000000008",
+      "title": "Deployment Checklist",
+      "content": "Pre-deployment checklist for production releases. Before deploy: (1) All CI checks pass on the merge commit. (2) Staging environment smoke tests pass. (3) Database migrations tested against a production-size dataset copy. (4) Feature flags configured in LaunchDarkly for gradual rollout. (5) Rollback plan documented in the deploy PR. (6) On-call engineer notified via Slack #deployments channel. During deploy: (7) Monitor ECS rolling deployment in AWS console. (8) Watch error rates in Sentry for the first 10 minutes. (9) Check API latency p99 in Grafana stays below 500ms. (10) Verify health check endpoints return 200. Post-deploy: (11) Run post-deploy verification script. (12) Update deployment log in Notion. (13) Close the deploy PR. Updated January 2025 to include Kubernetes canary deployment steps for the migrated services.",
+      "last_edited_time": "2025-01-15T14:00:00Z",
+      "created_time": "2023-07-10T09:00:00Z",
+      "backlinks": [
+        "e1a00005-0000-4000-a000-000000000005",
+        "e1a00007-0000-4000-a000-000000000007"
+      ],
+      "outbound_links": [
+        "e1a00005-0000-4000-a000-000000000005",
+        "e1a00007-0000-4000-a000-000000000007"
+      ],
+      "parent_id": "c0000001-0000-4000-a000-000000000100",
+      "edit_history": [
+        {"time": "2023-07-10T09:00:00Z", "magnitude": 1.0},
+        {"time": "2023-11-20T11:00:00Z", "magnitude": 0.15},
+        {"time": "2024-04-10T09:00:00Z", "magnitude": 0.1},
+        {"time": "2024-08-15T14:00:00Z", "magnitude": 0.2},
+        {"time": "2025-01-15T14:00:00Z", "magnitude": 0.25}
+      ]
+    },
+    {
+      "id": "p2b00001-0000-4000-a000-000000000009",
+      "title": "Q2 2024 Product Roadmap",
+      "content": "Product roadmap for Q2 2024 (April - June). Theme: Platform Reliability. Key initiatives: (1) Search improvements: full-text search rewrite using Elasticsearch, target 50% reduction in search latency. Owner: Search team. Status: In progress. (2) Notification system redesign: replace polling-based notifications with WebSocket push. Owner: Platform team. Status: Spec complete, implementation pending. (3) Mobile app beta: launch iOS beta with core page editing and real-time collaboration. Owner: Mobile team. Status: In development. (4) Analytics dashboard: self-serve analytics for workspace admins showing page engagement, active users, and content freshness. Owner: Data team. Status: Design phase. Dependencies: search improvements block analytics because the new index powers content freshness metrics. Success metric: 20% improvement in workspace admin satisfaction score.",
+      "last_edited_time": "2024-06-01T10:00:00Z",
+      "created_time": "2024-03-25T09:00:00Z",
+      "backlinks": [
+        "p2b00004-0000-4000-a000-000000000012",
+        "p2b00006-0000-4000-a000-000000000014"
+      ],
+      "outbound_links": [
+        "p2b00002-0000-4000-a000-000000000010",
+        "p2b00005-0000-4000-a000-000000000013"
+      ],
+      "parent_id": "c0000002-0000-4000-a000-000000000200",
+      "edit_history": [
+        {"time": "2024-03-25T09:00:00Z", "magnitude": 1.0},
+        {"time": "2024-04-15T14:00:00Z", "magnitude": 0.15},
+        {"time": "2024-06-01T10:00:00Z", "magnitude": 0.1}
+      ]
+    },
+    {
+      "id": "p2b00002-0000-4000-a000-000000000010",
+      "title": "Search Feature Spec",
+      "content": "Specification for the full-text search rewrite. Current state: search uses PostgreSQL LIKE queries with GIN indexes on the content_blocks JSONB field. Performance degrades significantly above 10,000 pages per workspace. Proposed solution: migrate to Elasticsearch with a custom analyzer for mixed content types (text, code blocks, tables). Architecture: Elasticsearch cluster (3 nodes, m5.xlarge) behind an internal API. Indexing pipeline: CDC from PostgreSQL via Debezium -> Kafka -> Elasticsearch bulk indexer. Query flow: frontend -> API gateway -> search service -> Elasticsearch. Ranking: BM25 with field boosts (title 3x, headers 2x, body 1x). Relevance testing: golden set of 200 query-result pairs rated by 5 team members. Target latency: p95 under 200ms. Estimated effort: 6 engineer-weeks.",
+      "last_edited_time": "2023-09-28T11:00:00Z",
+      "created_time": "2023-08-15T09:00:00Z",
+      "backlinks": [
+        "p2b00001-0000-4000-a000-000000000009"
+      ],
+      "outbound_links": [
+        "e1a00004-0000-4000-a000-000000000004"
+      ],
+      "parent_id": "c0000002-0000-4000-a000-000000000200",
+      "edit_history": [
+        {"time": "2023-08-15T09:00:00Z", "magnitude": 1.0},
+        {"time": "2023-09-28T11:00:00Z", "magnitude": 0.12}
+      ]
+    },
+    {
+      "id": "p2b00003-0000-4000-a000-000000000011",
+      "title": "Notifications Redesign Spec",
+      "content": "Specification for replacing the polling-based notification system with real-time push. Current system: clients poll /api/v1/notifications every 30 seconds, backed by a PostgreSQL query that scans the notifications table filtered by user_id and read status. At scale this generates significant database load and delivers poor UX with up to 30-second delays. Proposed approach: WebSocket connections via a new notification service built on Node.js and Socket.io. Architecture: clients connect to wss://notify.example.com, authenticated via JWT. Server-side: Redis Pub/Sub distributes notification events across Socket.io instances. Notification types: page_mention, comment_reply, page_shared, workspace_invite. Fallback: if WebSocket connection drops, client falls back to polling at 60-second intervals. Estimated effort: 4 engineer-weeks. Blocked on: auth service JWT refresh flow must support WebSocket reconnection tokens.",
+      "last_edited_time": "2023-08-22T14:00:00Z",
+      "created_time": "2023-07-20T10:00:00Z",
+      "backlinks": [],
+      "outbound_links": [
+        "p2b00005-0000-4000-a000-000000000013"
+      ],
+      "parent_id": "c0000002-0000-4000-a000-000000000200",
+      "edit_history": [
+        {"time": "2023-07-20T10:00:00Z", "magnitude": 1.0},
+        {"time": "2023-08-22T14:00:00Z", "magnitude": 0.08}
+      ]
+    },
+    {
+      "id": "p2b00004-0000-4000-a000-000000000012",
+      "title": "Mobile App Launch Plan",
+      "content": "Launch plan for the iOS mobile application beta. Timeline: internal dogfood (April), closed beta with 50 workspaces (May), open beta (June). Core features for beta: page viewing with full block type support, inline editing for text and todo blocks, real-time collaboration cursors, offline mode with conflict resolution, push notifications for mentions and comments. Technical stack: React Native with a shared component library from the web app. API: existing REST endpoints plus new mobile-optimized endpoints for batch page fetching. Authentication: OAuth2 with biometric unlock (Face ID / Touch ID) after initial login. Performance targets: app launch under 2 seconds, page load under 1 second on 4G. TestFlight distribution for iOS, internal APK for Android testing. Go/no-go criteria: crash rate below 0.5%, all P1 bugs resolved, performance targets met in closed beta.",
+      "last_edited_time": "2024-08-10T09:00:00Z",
+      "created_time": "2024-02-20T14:00:00Z",
+      "backlinks": [
+        "p2b00006-0000-4000-a000-000000000014",
+        "m4d00006-0000-4000-a000-000000000028"
+      ],
+      "outbound_links": [
+        "p2b00001-0000-4000-a000-000000000009",
+        "p2b00007-0000-4000-a000-000000000015"
+      ],
+      "parent_id": "c0000002-0000-4000-a000-000000000200",
+      "edit_history": [
+        {"time": "2024-02-20T14:00:00Z", "magnitude": 1.0},
+        {"time": "2024-04-30T10:00:00Z", "magnitude": 0.3},
+        {"time": "2024-06-15T09:00:00Z", "magnitude": 0.2},
+        {"time": "2024-08-10T09:00:00Z", "magnitude": 0.1}
+      ]
+    },
+    {
+      "id": "p2b00005-0000-4000-a000-000000000013",
+      "title": "Analytics Dashboard Spec",
+      "content": "Specification for the workspace admin analytics dashboard. Target users: workspace admins who need visibility into content health and team engagement. Key metrics: (1) Page engagement: views per page over 7/30/90 day windows, unique viewers, time on page. (2) Active contributors: users who edited pages in the last 30 days, contribution heatmap. (3) Content freshness: percentage of pages edited in the last 30/60/90 days, stale page identification. (4) Search effectiveness: top queries, zero-result queries, click-through rates. Data pipeline: events collected via the existing analytics SDK, stored in a data warehouse (BigQuery), aggregated daily via scheduled dbt jobs. Frontend: embedded dashboard within the workspace settings, built with Recharts for visualizations. Access control: only workspace admins and owners can view analytics. Privacy: all metrics are aggregated, no individual user tracking visible to admins. Estimated effort: 8 engineer-weeks across frontend and data teams.",
+      "last_edited_time": "2024-07-05T11:00:00Z",
+      "created_time": "2024-04-10T10:00:00Z",
+      "backlinks": [
+        "p2b00001-0000-4000-a000-000000000009",
+        "p2b00003-0000-4000-a000-000000000011"
+      ],
+      "outbound_links": [
+        "p2b00007-0000-4000-a000-000000000015"
+      ],
+      "parent_id": "c0000002-0000-4000-a000-000000000200",
+      "edit_history": [
+        {"time": "2024-04-10T10:00:00Z", "magnitude": 1.0},
+        {"time": "2024-05-20T14:00:00Z", "magnitude": 0.25},
+        {"time": "2024-07-05T11:00:00Z", "magnitude": 0.15}
+      ]
+    },
+    {
+      "id": "p2b00006-0000-4000-a000-000000000014",
+      "title": "User Permissions Overhaul",
+      "content": "Proposal for overhauling the workspace permission model. Current model: three roles (owner, admin, member) applied at the workspace level. All members can view all pages, admins can manage members, owners can manage billing. Problem: no page-level permissions, no guest access, no granular sharing controls. Teams workaround this by creating separate workspaces, fragmenting knowledge. Proposed model: role-based access control with page-level inheritance. Roles: owner, admin, editor, commenter, viewer. Permissions cascade from workspace -> section -> page. Explicit overrides at any level. Guest access via email invitation with time-limited tokens. Implementation phases: Phase 1 (Q3 2024): backend permission model and API. Phase 2 (Q4 2024): frontend permission UI and sharing dialogs. Phase 3 (Q1 2025): guest access and external sharing. Migration: existing members get editor role, existing admins get admin role, no disruption to current access patterns.",
+      "last_edited_time": "2024-09-12T10:00:00Z",
+      "created_time": "2024-05-15T09:00:00Z",
+      "backlinks": [],
+      "outbound_links": [
+        "p2b00001-0000-4000-a000-000000000009",
+        "p2b00004-0000-4000-a000-000000000012"
+      ],
+      "parent_id": "c0000002-0000-4000-a000-000000000200",
+      "edit_history": [
+        {"time": "2024-05-15T09:00:00Z", "magnitude": 1.0},
+        {"time": "2024-07-20T14:00:00Z", "magnitude": 0.2},
+        {"time": "2024-09-12T10:00:00Z", "magnitude": 0.15}
+      ]
+    },
+    {
+      "id": "p2b00007-0000-4000-a000-000000000015",
+      "title": "API Rate Limiting Proposal",
+      "content": "Proposal for implementing tiered API rate limiting. Motivation: the public API currently has a flat 100 req/min limit per API key, but large integrations (Zapier, automated workflows) frequently hit this ceiling while small integrations never approach it. Proposed tiers: Free (100 req/min), Pro (500 req/min), Enterprise (2000 req/min with burst to 5000). Implementation: token bucket algorithm implemented at the API gateway level using Redis for distributed counter storage. Rate limit headers: X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Reset. Exceeding the limit returns 429 with a Retry-After header. Monitoring: rate limit events logged to the analytics pipeline for capacity planning. Approved in January 2025 architecture review. Implementation scheduled for Q1 2025 sprint 3.",
+      "last_edited_time": "2025-01-05T09:00:00Z",
+      "created_time": "2024-11-20T10:00:00Z",
+      "backlinks": [
+        "p2b00004-0000-4000-a000-000000000012",
+        "p2b00005-0000-4000-a000-000000000013",
+        "p2b00008-0000-4000-a000-000000000016"
+      ],
+      "outbound_links": [],
+      "parent_id": "c0000002-0000-4000-a000-000000000200",
+      "edit_history": [
+        {"time": "2024-11-20T10:00:00Z", "magnitude": 1.0},
+        {"time": "2024-12-10T14:00:00Z", "magnitude": 0.3},
+        {"time": "2025-01-05T09:00:00Z", "magnitude": 0.15}
+      ]
+    },
+    {
+      "id": "p2b00008-0000-4000-a000-000000000016",
+      "title": "Performance Optimization Plan",
+      "content": "Q1 2025 performance optimization plan targeting core user flows. Baseline metrics (measured January 2025): page load p50 = 1.2s, p95 = 3.8s, p99 = 7.1s. Search latency p50 = 180ms, p95 = 620ms. Time to interactive on dashboard = 2.4s. Target: 40% reduction in p95 page load, 50% reduction in search p95. Optimization areas: (1) Frontend: implement virtual scrolling for large pages (>100 blocks), lazy load below-fold content, optimize React re-renders with memo boundaries. (2) Backend: add Redis caching layer for hot pages (LRU, 15-min TTL), optimize N+1 queries in the page tree endpoint, implement database connection pooling via PgBouncer. (3) Infrastructure: migrate static assets to CloudFront CDN, enable HTTP/2 on the API gateway, implement response compression (gzip/brotli). Measurement: synthetic monitoring via Datadog, real user monitoring via the analytics SDK. Weekly performance review meetings starting January 27.",
+      "last_edited_time": "2025-01-20T11:00:00Z",
+      "created_time": "2025-01-08T09:00:00Z",
+      "backlinks": [
+        "m4d00002-0000-4000-a000-000000000024"
+      ],
+      "outbound_links": [
+        "p2b00007-0000-4000-a000-000000000015"
+      ],
+      "parent_id": "c0000002-0000-4000-a000-000000000200",
+      "edit_history": [
+        {"time": "2025-01-08T09:00:00Z", "magnitude": 1.0},
+        {"time": "2025-01-20T11:00:00Z", "magnitude": 0.2}
+      ]
+    },
+    {
+      "id": "o3c00001-0000-4000-a000-000000000017",
+      "title": "New Engineer Setup Guide",
+      "content": "Welcome to the team! This guide walks you through your first day setup. Step 1: Get your laptop configured. IT will provide a MacBook Pro with the standard image. Step 2: Request access to the following systems: GitHub (ask your manager to add you to the engineering org), AWS (request IAM user via the #it-requests Slack channel), Notion workspace (your manager will send an invite), Jira (auto-provisioned via Okta). Step 3: Clone the monorepo from github.com/example/platform. Step 4: Follow the Development Environment Setup guide to get the app running locally. Step 5: Set up your editor (we recommend VS Code with our shared settings file in .vscode/settings.json). Step 6: Join these Slack channels: #engineering, #deploys, #incidents, #random. Step 7: Schedule 1:1s with your manager, tech lead, and onboarding buddy during your first week. Note: the VPN setup instructions are in the Tools and Access Guide.",
+      "last_edited_time": "2023-06-15T10:00:00Z",
+      "created_time": "2022-11-01T09:00:00Z",
+      "backlinks": [
+        "o3c00005-0000-4000-a000-000000000021"
+      ],
+      "outbound_links": [
+        "o3c00002-0000-4000-a000-000000000018",
+        "o3c00003-0000-4000-a000-000000000019"
+      ],
+      "parent_id": "c0000003-0000-4000-a000-000000000300",
+      "edit_history": [
+        {"time": "2022-11-01T09:00:00Z", "magnitude": 1.0},
+        {"time": "2023-02-10T14:00:00Z", "magnitude": 0.1},
+        {"time": "2023-06-15T10:00:00Z", "magnitude": 0.05}
+      ]
+    },
+    {
+      "id": "o3c00002-0000-4000-a000-000000000018",
+      "title": "Team Org Chart",
+      "content": "Engineering organization chart (last updated April 2023). VP of Engineering: Sarah Chen. Platform Team: Tech Lead Marcus Johnson, 6 engineers. Product Team: Tech Lead Priya Patel, 5 engineers. Mobile Team: Tech Lead James Wilson, 4 engineers. Data Team: Tech Lead Ana Rodriguez, 3 engineers. Infrastructure Team: Tech Lead David Kim, 3 engineers. DevOps: Alex Thompson (reports to VP Eng directly). Total engineering headcount: 23. Reporting structure: all tech leads report to VP Eng. Each team has a dedicated product manager and designer. On-call rotation spans Platform and Infrastructure teams. Note: this chart reflects the org structure as of April 2023 and may not reflect recent changes.",
+      "last_edited_time": "2023-04-20T09:00:00Z",
+      "created_time": "2022-10-15T10:00:00Z",
+      "backlinks": [
+        "o3c00001-0000-4000-a000-000000000017"
+      ],
+      "outbound_links": [],
+      "parent_id": "c0000003-0000-4000-a000-000000000300",
+      "edit_history": [
+        {"time": "2022-10-15T10:00:00Z", "magnitude": 1.0},
+        {"time": "2023-01-12T11:00:00Z", "magnitude": 0.3},
+        {"time": "2023-04-20T09:00:00Z", "magnitude": 0.15}
+      ]
+    },
+    {
+      "id": "o3c00003-0000-4000-a000-000000000019",
+      "title": "Development Environment Setup",
+      "content": "Local development environment setup instructions. Prerequisites: macOS 12+, Homebrew, Docker Desktop. Step 1: Install Ruby 3.1.2 via rbenv (rbenv install 3.1.2 && rbenv global 3.1.2). Step 2: Install Node 18 LTS via nvm (nvm install 18 && nvm use 18). Step 3: Install PostgreSQL 14 via Homebrew (brew install postgresql@14). Step 4: Install Redis via Homebrew (brew install redis). Step 5: Clone the repo and run bundle install && yarn install. Step 6: Copy .env.example to .env and fill in the values (ask your onboarding buddy for the development secrets). Step 7: Run rails db:setup to create and seed the database. Step 8: Start the development server with foreman start (starts Rails, webpack dev server, and Sidekiq). Step 9: Visit localhost:3000 to verify the app is running. Troubleshooting: if bundler fails on the pg gem, make sure PostgreSQL is in your PATH. If yarn install fails, try deleting node_modules and yarn.lock and retrying.",
+      "last_edited_time": "2023-07-08T14:00:00Z",
+      "created_time": "2022-11-05T10:00:00Z",
+      "backlinks": [
+        "o3c00001-0000-4000-a000-000000000017",
+        "o3c00005-0000-4000-a000-000000000021"
+      ],
+      "outbound_links": [
+        "o3c00004-0000-4000-a000-000000000020"
+      ],
+      "parent_id": "c0000003-0000-4000-a000-000000000300",
+      "edit_history": [
+        {"time": "2022-11-05T10:00:00Z", "magnitude": 1.0},
+        {"time": "2023-03-18T09:00:00Z", "magnitude": 0.15},
+        {"time": "2023-07-08T14:00:00Z", "magnitude": 0.08}
+      ]
+    },
+    {
+      "id": "o3c00004-0000-4000-a000-000000000020",
+      "title": "Codebase Overview",
+      "content": "High-level codebase overview for new engineers. The platform monorepo contains: /app — Rails application (MVC structure, models in app/models, controllers in app/controllers/api/v1/, views are JSON serializers via jbuilder). /frontend — React SPA (components in src/components, state management via Redux, API client in src/api/). /workers — Sidekiq background job classes. /lib — shared utilities and service objects. /spec — RSpec tests (model specs, request specs, integration specs). /infra — Terraform configurations for AWS resources. Key patterns: service objects for business logic (app/services/), form objects for complex validations (app/forms/), query objects for complex database queries (app/queries/). The codebase follows Rails conventions with some deviations: API-only mode (no server-rendered views), UUID primary keys, JSONB for flexible content storage. Total codebase size: approximately 120k lines of Ruby, 80k lines of TypeScript.",
+      "last_edited_time": "2023-05-12T10:00:00Z",
+      "created_time": "2022-11-10T09:00:00Z",
+      "backlinks": [
+        "o3c00003-0000-4000-a000-000000000019"
+      ],
+      "outbound_links": [
+        "e1a00002-0000-4000-a000-000000000002"
+      ],
+      "parent_id": "c0000003-0000-4000-a000-000000000300",
+      "edit_history": [
+        {"time": "2022-11-10T09:00:00Z", "magnitude": 1.0},
+        {"time": "2023-05-12T10:00:00Z", "magnitude": 0.1}
+      ]
+    },
+    {
+      "id": "o3c00005-0000-4000-a000-000000000021",
+      "title": "First Week Checklist",
+      "content": "Checklist for your first week. Day 1: Laptop setup and system access (see New Engineer Setup Guide). Meet your onboarding buddy and manager. Join required Slack channels. Day 2: Development environment setup (see Development Environment Setup). Attend the weekly engineering all-hands. Day 3: Codebase walkthrough with your tech lead. Pick up your first starter task (labeled 'good-first-issue' in Jira). Day 4: Complete your first PR. Get familiar with the code review process and our review guidelines. Day 5: Ship your first change to staging. Attend the Friday demo session. By end of week 1 you should have: working local environment, merged at least one PR, met your immediate team, and have a clear picture of your first project. If anything is blocking you, raise it immediately in your daily standup.",
+      "last_edited_time": "2024-04-05T11:00:00Z",
+      "created_time": "2022-11-15T09:00:00Z",
+      "backlinks": [
+        "o3c00006-0000-4000-a000-000000000022"
+      ],
+      "outbound_links": [
+        "o3c00001-0000-4000-a000-000000000017",
+        "o3c00003-0000-4000-a000-000000000019",
+        "o3c00006-0000-4000-a000-000000000022"
+      ],
+      "parent_id": "c0000003-0000-4000-a000-000000000300",
+      "edit_history": [
+        {"time": "2022-11-15T09:00:00Z", "magnitude": 1.0},
+        {"time": "2023-04-10T14:00:00Z", "magnitude": 0.15},
+        {"time": "2024-04-05T11:00:00Z", "magnitude": 0.1}
+      ]
+    },
+    {
+      "id": "o3c00006-0000-4000-a000-000000000022",
+      "title": "Tools and Access Guide",
+      "content": "Guide to the tools and services you will need access to. Communication: Slack (primary), email for external communication. Project management: Jira for task tracking, Notion for documentation and knowledge base. Code: GitHub for source control, GitHub Actions for CI/CD. Infrastructure: AWS Console (read access by default, write access via role assumption), Terraform for infrastructure changes. Monitoring: Grafana dashboards for metrics, Sentry for error tracking, PagerDuty for on-call alerts. Design: Figma for design files and prototypes. VPN: GlobalProtect VPN required for accessing internal services from outside the office. Setup: download from the IT portal (it.example.com/vpn), use your Okta credentials. API testing: Postman collection available in the shared team workspace (ask in #engineering for access). Password management: 1Password Teams, your invite will come from IT on your first day.",
+      "last_edited_time": "2024-03-18T09:00:00Z",
+      "created_time": "2022-11-20T10:00:00Z",
+      "backlinks": [
+        "o3c00005-0000-4000-a000-000000000021"
+      ],
+      "outbound_links": [
+        "o3c00005-0000-4000-a000-000000000021"
+      ],
+      "parent_id": "c0000003-0000-4000-a000-000000000300",
+      "edit_history": [
+        {"time": "2022-11-20T10:00:00Z", "magnitude": 1.0},
+        {"time": "2023-05-25T11:00:00Z", "magnitude": 0.2},
+        {"time": "2024-03-18T09:00:00Z", "magnitude": 0.08}
+      ]
+    },
+    {
+      "id": "m4d00001-0000-4000-a000-000000000023",
+      "title": "Sprint Retro - Jan 27 2025",
+      "content": "Sprint 2025-04 retrospective. Participants: Platform team (6), Product team (4). What went well: Kubernetes migration for the API service completed ahead of schedule. On-call runbook updates helped reduce incident response time by 30%. New rate limiting proposal got quick approval from architecture review. What could improve: deploy pipeline intermittently fails on the container scanning step (Trivy timeouts). Cross-team dependency on the permissions overhaul is blocking mobile team features. Test coverage for the new caching layer is below our 80% target. Action items: (1) Add retry logic to Trivy scanning step, owner: Alex. (2) Schedule permissions API review with mobile team, owner: Priya. (3) Write integration tests for Redis caching layer before next sprint, owner: Marcus.",
+      "last_edited_time": "2025-01-27T16:00:00Z",
+      "created_time": "2025-01-27T14:00:00Z",
+      "backlinks": [],
+      "outbound_links": [
+        "e1a00007-0000-4000-a000-000000000007"
+      ],
+      "parent_id": "c0000004-0000-4000-a000-000000000400",
+      "edit_history": [
+        {"time": "2025-01-27T14:00:00Z", "magnitude": 1.0},
+        {"time": "2025-01-27T16:00:00Z", "magnitude": 0.1}
+      ]
+    },
+    {
+      "id": "m4d00002-0000-4000-a000-000000000024",
+      "title": "Architecture Review - Jan 22 2025",
+      "content": "Architecture review meeting notes. Agenda: (1) API rate limiting proposal review. (2) Performance optimization plan review. (3) Kubernetes migration status update. Decisions: Rate limiting proposal approved with modification: add a 10-second sliding window for burst detection in addition to the per-minute bucket. Performance optimization plan approved. Priority order: database connection pooling first (highest impact per effort), then CDN migration, then frontend virtual scrolling. Kubernetes migration: API service fully migrated, background workers migration planned for Q2. Decision on worker migration: use Kubernetes Jobs instead of long-running pods to match the current Sidekiq semantics. Open question: should we migrate the auth service to Kubernetes or keep it on ECS given its lower change frequency? Deferred to next review.",
+      "last_edited_time": "2025-01-22T17:00:00Z",
+      "created_time": "2025-01-22T14:00:00Z",
+      "backlinks": [],
+      "outbound_links": [
+        "e1a00007-0000-4000-a000-000000000007",
+        "p2b00008-0000-4000-a000-000000000016"
+      ],
+      "parent_id": "c0000004-0000-4000-a000-000000000400",
+      "edit_history": [
+        {"time": "2025-01-22T14:00:00Z", "magnitude": 1.0},
+        {"time": "2025-01-22T17:00:00Z", "magnitude": 0.15}
+      ]
+    },
+    {
+      "id": "m4d00003-0000-4000-a000-000000000025",
+      "title": "Incident Postmortem - Jan 15 2025",
+      "content": "Incident postmortem for the January 15 API outage. Duration: 47 minutes (14:23 - 15:10 UTC). Impact: all API requests returned 503 for approximately 30% of users. Root cause: a database migration in the deploy pipeline acquired an exclusive lock on the pages table, blocking all read queries. The migration added an index on a column used in the hot path query for page loading. The index creation on the 12M row table took longer than the 5-minute migration timeout, causing the migration to fail mid-execution while the lock was still held. Resolution: manually killed the migration process via pg_terminate_backend, then applied the index using CREATE INDEX CONCURRENTLY in a separate migration. Prevention: (1) All migrations must use disable_ddl_transaction! for index creation. (2) Migration review checklist updated to include lock impact analysis. (3) Added a pre-deploy check that estimates migration runtime against production table sizes. Lessons: the on-call runbook section on database issues was crucial for fast resolution.",
+      "last_edited_time": "2025-01-17T10:00:00Z",
+      "created_time": "2025-01-15T16:00:00Z",
+      "backlinks": [],
+      "outbound_links": [
+        "e1a00007-0000-4000-a000-000000000007"
+      ],
+      "parent_id": "c0000004-0000-4000-a000-000000000400",
+      "edit_history": [
+        {"time": "2025-01-15T16:00:00Z", "magnitude": 1.0},
+        {"time": "2025-01-17T10:00:00Z", "magnitude": 0.2}
+      ]
+    },
+    {
+      "id": "m4d00004-0000-4000-a000-000000000026",
+      "title": "Product Sync - Jan 20 2025",
+      "content": "Weekly product sync meeting notes. Attendees: product managers, tech leads, design leads. Updates by team: Platform: Kubernetes migration on track, API rate limiting approved at architecture review, performance optimization plan kicks off this week. Mobile: iOS app crash rate down to 0.3% in closed beta, preparing for open beta launch in February. Blocked on permissions API. Product: Analytics dashboard design review complete, implementation starting next sprint. On-call: one P2 incident last week (API outage, see postmortem). Response time was good thanks to updated runbook. Upcoming: permissions overhaul API review scheduled for Friday. Mobile team will present their beta metrics at next week's engineering all-hands. Design team to share the updated notification UI mocks by Wednesday.",
+      "last_edited_time": "2025-01-20T16:00:00Z",
+      "created_time": "2025-01-20T14:00:00Z",
+      "backlinks": [],
+      "outbound_links": [
+        "e1a00007-0000-4000-a000-000000000007"
+      ],
+      "parent_id": "c0000004-0000-4000-a000-000000000400",
+      "edit_history": [
+        {"time": "2025-01-20T14:00:00Z", "magnitude": 1.0},
+        {"time": "2025-01-20T16:00:00Z", "magnitude": 0.08}
+      ]
+    },
+    {
+      "id": "m4d00005-0000-4000-a000-000000000027",
+      "title": "Team All-Hands - Jan 29 2025",
+      "content": "January engineering all-hands meeting notes. Presented by VP Eng Sarah Chen. Company update: Q4 revenue targets met, ARR growth at 35% YoY. Engineering headcount plan: 5 new hires approved for H1 2025 (2 platform, 2 mobile, 1 data). Key announcements: (1) Kubernetes migration is the top infrastructure priority for Q1. API service migration complete, workers migration starting Q2. (2) Mobile app open beta launching February 15. (3) New engineering levels framework rolling out in March. Tech talks: Marcus presented the on-call runbook improvements and how they reduced mean time to resolution by 30% over the last quarter. Priya demoed the permissions overhaul API with live examples. Q&A highlights: question about remote work policy (no changes planned), question about conference budget (each engineer gets $2000/year for conferences).",
+      "last_edited_time": "2025-01-29T17:00:00Z",
+      "created_time": "2025-01-29T15:00:00Z",
+      "backlinks": [],
+      "outbound_links": [
+        "e1a00007-0000-4000-a000-000000000007"
+      ],
+      "parent_id": "c0000004-0000-4000-a000-000000000400",
+      "edit_history": [
+        {"time": "2025-01-29T15:00:00Z", "magnitude": 1.0},
+        {"time": "2025-01-29T17:00:00Z", "magnitude": 0.12}
+      ]
+    },
+    {
+      "id": "m4d00006-0000-4000-a000-000000000028",
+      "title": "Planning Session - Dec 12 2024",
+      "content": "Q1 2025 planning session notes. Participants: all tech leads, VP Eng, product managers. Capacity: approximately 45 engineer-weeks across all teams after accounting for holidays and on-call overhead. Priority stack rank: (1) Kubernetes migration (15 eng-weeks, Platform + Infra). (2) Mobile app open beta (10 eng-weeks, Mobile). (3) Permissions overhaul Phase 2 (8 eng-weeks, Product). (4) Performance optimization (6 eng-weeks, Platform). (5) Analytics dashboard implementation (6 eng-weeks, Data + Product). Total committed: 45 eng-weeks. Stretch goals (if capacity frees up): notification system WebSocket migration, search relevance improvements. Risks: Kubernetes migration has external dependency on the new AWS EKS version. Mobile beta timeline depends on App Store review turnaround. Permissions overhaul may surface data model issues requiring schema changes.",
+      "last_edited_time": "2024-12-12T17:00:00Z",
+      "created_time": "2024-12-12T10:00:00Z",
+      "backlinks": [],
+      "outbound_links": [
+        "p2b00004-0000-4000-a000-000000000012"
+      ],
+      "parent_id": "c0000004-0000-4000-a000-000000000400",
+      "edit_history": [
+        {"time": "2024-12-12T10:00:00Z", "magnitude": 1.0},
+        {"time": "2024-12-12T17:00:00Z", "magnitude": 0.15}
+      ]
+    }
+  ]
+}
