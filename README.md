@@ -1,204 +1,107 @@
 # NotionPulse
 
-Knowledge reliability scoring for Notion workspaces.
+NotionPulse is a reliability scoring product for Notion workspaces.
 
-NotionPulse crawls a Notion workspace, builds a page graph, extracts structural and semantic drift signals, and returns a calibrated reliability score for each page. The product ships as two services:
+It analyzes a workspace, builds a page graph, measures structural and semantic drift, and returns a reliability score for each page. The project includes a FastAPI backend and a Next.js frontend.
 
-| Service | Stack | Purpose |
-| --- | --- | --- |
-| Frontend | Next.js 15 · TypeScript · Tailwind | Connect flow, ranked dashboard, page detail view |
-| Backend | FastAPI · Python 3.12 · scikit-learn | Crawl, feature extraction, embeddings, model scoring |
+## Product Summary
 
-## What is implemented
+The backend handles crawling, feature extraction, embeddings, scoring, and cached results.
 
-- Demo scoring flow with a 28-page fixture from the project plan
-- Live Notion workspace scoring through the backend API
-- Notion OAuth connect flow with server-side token storage via HTTP-only cookies
-- Ranked dashboard with green / amber / red reliability bands
-- Per-page feature breakdown with semantic neighbor comparisons
-- Deployable backend config for Render
+The frontend handles the connect flow, demo flow, ranked dashboard, and page detail screens.
 
-## Repo structure
+The current repo supports both a demo workspace and a live Notion workspace.
 
-```text
-backend/
-  main.py                FastAPI routes
-  service.py             Scoring orchestration and run cache
-  crawler.py             Live Notion API crawler
-  snapshot.py            WorkspaceSnapshot dataclasses and fixture loader
-  features.py            Structural features
-  embeddings.py          Cohere embeddings plus SQLite cache
-  model.py               Label generation, training, calibration, scoring
-  demo_workspace.json    Demo fixture
-  tests/test_api.py      Backend API tests
+## Core Features
 
-frontend/
-  app/page.tsx                   Home and connect view
-  app/dashboard/page.tsx         Ranked reliability dashboard
-  app/page/[id]/page.tsx         Page detail view
-  app/api/notion/*               OAuth and logout routes
-  app/auth/notion/callback       OAuth callback handler
-  app/api/score/live             Live workspace rescore route
-  components/                    Shared UI components
-  lib/                           API and auth helpers
+1. Demo scoring flow using the bundled workspace fixture
+2. Live workspace scoring through the backend API
+3. Notion OAuth connect flow on the frontend
+4. Ranked dashboard with reliability bands
+5. Page detail view with feature level explanations
+6. Graph data endpoint for page relationships
 
-render.yaml             Render deployment config for the backend
-```
+## How It Works
 
-## Architecture
+1. The app loads a workspace snapshot from the demo fixture or from the Notion API
+2. The backend builds a graph of page relationships
+3. Structural features are extracted from page activity and graph context
+4. Semantic features are computed from page content embeddings
+5. A model estimates staleness probability
+6. The API returns a reliability score derived from that probability
 
-The backend supports two data sources behind one scoring pipeline:
+## Repository Layout
 
-1. Demo mode loads `backend/demo_workspace.json`
-2. Live mode crawls Notion through the official API
+`backend/` contains the API, crawler, feature pipeline, model logic, fixture data, and tests.
 
-Both sources feed the same pipeline:
+`frontend/` contains the web app, OAuth routes, dashboard, detail page, and shared UI components.
 
-1. Build a `WorkspaceSnapshot`
-2. Build the page dependency graph
-3. Extract structural features
-4. Compute semantic features from embeddings
-5. Load the bundled model, or retrain from the fixture if `model.pkl` is not portable in the current environment
-6. Return calibrated reliability scores
+`render.yaml` contains the backend deployment configuration for Render.
 
-The frontend uses the backend as the source of truth. For live mode, the user authenticates with Notion OAuth, the callback exchanges the authorization code for an access token, stores it in an HTTP-only cookie, triggers an initial score run, and redirects to the dashboard.
+## Main API Routes
 
-## Reliability signals
+1. `GET /health`
+2. `POST /score`
+3. `POST /score/demo`
+4. `GET /scores`
+5. `GET /page/{id}`
+6. `GET /graph`
 
-Each page is scored from these feature families:
+## Environment
 
-- Structural: `days_since_edit`, `edit_frequency`, `inbound_backlinks`, `neighbor_recency_gap`, `is_orphan`
-- Semantic: `cohere_drift`, `self_neighbor_sim`, `cluster_outlier_score`
+The backend example environment file is `backend/.env.example`.
 
-The model output is a staleness probability. The API returns `1 - probability` as the reliability score.
+The frontend example environment file is `frontend/.env.local.example`.
 
-Banding used by the UI:
+For local frontend development, set `NEXT_PUBLIC_API_BASE_URL` to your backend URL, such as `http://127.0.0.1:8000`.
 
-- `red`: score `< 0.4`
-- `amber`: `0.4 <= score < 0.7`
-- `green`: score `>= 0.7`
+For live Notion OAuth, set `NOTION_OAUTH_CLIENT_ID`, `NOTION_OAUTH_CLIENT_SECRET`, and `NOTION_OAUTH_REDIRECT_URI` in the frontend environment.
 
-## Environment variables
+For backend integrations, set `COHERE_API_KEY` if you want live Cohere embeddings. `NOTION_TOKEN` can also be set on the backend for direct token based scoring.
+
+## Local Run
 
 ### Backend
 
-Copy [backend/.env.example](/Users/mderaznasr/conductor/workspaces/notion-project/almaty/backend/.env.example#L1) into `backend/.env` if you want local secrets on the API side.
-
-| Variable | Required | Purpose |
-| --- | --- | --- |
-| `NOTION_TOKEN` | No | Optional fallback token for direct live scoring |
-| `COHERE_API_KEY` | No | Real Cohere embeddings. Without it, demo embeddings are deterministic pseudo-embeddings |
+1. Open `backend/`
+2. Create a Python 3.12 virtual environment
+3. Install packages from `requirements.txt`
+4. Start the API with `uvicorn main:app`
 
 ### Frontend
 
-Copy [frontend/.env.local.example](/Users/mderaznasr/conductor/workspaces/notion-project/almaty/frontend/.env.local.example#L1) into `frontend/.env.local`.
+1. Open `frontend/`
+2. Copy `frontend/.env.local.example` to `frontend/.env.local`
+3. Run `npm install`
+4. Run `npm run dev`
 
-| Variable | Required | Purpose |
-| --- | --- | --- |
-| `NEXT_PUBLIC_API_BASE_URL` | Yes | Backend base URL, for example `http://127.0.0.1:8000` |
-| `NOTION_OAUTH_CLIENT_ID` | For OAuth | Notion OAuth client id |
-| `NOTION_OAUTH_CLIENT_SECRET` | For OAuth | Notion OAuth client secret |
-| `NOTION_OAUTH_REDIRECT_URI` | For OAuth | Must match the callback URL configured in Notion |
+Open `http://127.0.0.1:3000` in your browser.
 
-## Local development
+## Verification
 
-### 1. Backend
+Backend verification uses `pytest backend/tests`.
 
-Use Python 3.12 if possible.
-
-```bash
-cd backend
-python3.12 -m venv .venv
-. .venv/bin/activate
-pip install -r requirements.txt
-uvicorn main:app --reload
-```
-
-The API will be available at `http://127.0.0.1:8000`.
-
-### 2. Frontend
-
-```bash
-cd frontend
-cp .env.local.example .env.local
-npm install
-npm run dev
-```
-
-The app will be available at `http://127.0.0.1:3000`.
-
-## API surface
-
-| Endpoint | Method | Purpose |
-| --- | --- | --- |
-| `/health` | `GET` | Liveness check |
-| `/score` | `POST` | Score a live workspace or demo mode via payload |
-| `/score/demo` | `POST` | Score the fixture directly |
-| `/scores` | `GET` | Read the latest cached workspace run |
-| `/page/{id}` | `GET` | Page-level feature breakdown |
-| `/graph` | `GET` | Page graph adjacency data |
-
-### Example demo request
-
-```bash
-curl -X POST http://127.0.0.1:8000/score/demo
-```
-
-### Example live request
-
-```bash
-curl -X POST http://127.0.0.1:8000/score \
-  -H "Content-Type: application/json" \
-  -d '{"notion_token":"secret_xxx"}'
-```
-
-## Tests and verification
-
-Backend:
-
-```bash
-. .venv/bin/activate
-pytest backend/tests -q
-```
-
-Frontend:
-
-```bash
-cd frontend
-npm run build
-```
+Frontend verification uses `npm run build` from `frontend/`.
 
 ## Deployment
 
-### Backend on Render
+### Backend
 
-The repo includes [render.yaml](/Users/mderaznasr/conductor/workspaces/notion-project/almaty/render.yaml#L1). Create a new Render Blueprint or web service and set:
+Deploy the backend on Render using `render.yaml` or an equivalent web service configuration.
 
-- Root directory: `backend`
-- Build command: `pip install -r requirements.txt`
-- Start command: `uvicorn main:app --host 0.0.0.0 --port $PORT`
+Set the backend root directory to `backend` and use the start command defined in `render.yaml`.
 
-Set the `COHERE_API_KEY` and `NOTION_TOKEN` environment variables if you need them.
+### Frontend
 
-### Frontend on Vercel
+Deploy the frontend on Vercel with `frontend/` as the project root.
 
-Create a Vercel project rooted at `frontend` and set:
+Set `NEXT_PUBLIC_API_BASE_URL` to the deployed backend URL.
 
-- `NEXT_PUBLIC_API_BASE_URL` to your Render backend URL
-- `NOTION_OAUTH_CLIENT_ID`
-- `NOTION_OAUTH_CLIENT_SECRET`
-- `NOTION_OAUTH_REDIRECT_URI` to `https://<your-domain>/auth/notion/callback`
+If you want live Notion OAuth, register the callback URL with your Notion integration and set the matching frontend environment values.
 
-Make sure the same redirect URI is registered in the Notion integration settings.
+## Limitations
 
-## Known limitations
-
-- Live scoring depends on the current Notion API response shape and access scope granted to the integration
-- The latest live run is cached in memory on the backend, so a process restart clears it
-- The fallback model trained from the demo fixture keeps the app functional, but it is not a substitute for training on a broader dataset
-- Frontend automated tests are not set up yet; the frontend is currently verified by production build only
-
-## Version notes
-
-- The crawler uses Notion API version `2026-03-11`
-- The frontend uses `next@15.5.14`, which clears the current `npm audit` advisories verified in this workspace on April 7, 2026
+1. The latest live scoring run is cached in memory, so a backend restart clears it
+2. Live scoring depends on current Notion API behavior and granted access scope
+3. The fallback model keeps the app functional, but broader training data would improve production quality
+4. The frontend is currently verified by build success rather than a dedicated automated test suite
